@@ -2,7 +2,7 @@ import { signIn, auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { ALLOWED_DOMAIN } from "@/lib/auth";
 
-export const metadata = { title: "Sign in — Segment Ops" };
+export const metadata = { title: "Sign in — Missing Customer Segment & CSM" };
 
 export default async function SignInPage({
   searchParams,
@@ -17,7 +17,7 @@ export default async function SignInPage({
   return (
     <main className="flex min-h-screen items-center justify-center bg-surface px-4">
       <div className="w-full max-w-md rounded-2xl border border-line bg-white p-8 shadow-sm">
-        <h1 className="text-xl font-semibold text-ink">Customer Segment Ops</h1>
+        <h1 className="text-xl font-semibold text-ink">Missing Customer Segment &amp; CSM</h1>
         <p className="mt-2 text-sm text-muted">
           Internal tool for Customer Success. Sign in with your{" "}
           <span className="font-medium text-ink">@{ALLOWED_DOMAIN}</span> Google

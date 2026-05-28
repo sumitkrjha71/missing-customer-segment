@@ -6,8 +6,8 @@ import Link from "next/link";
 import { TabNav } from "@/components/TabNav";
 
 export const metadata: Metadata = {
-  title: "Customer Segment Ops",
-  description: "Internal tool for classifying enterprises into customer segments",
+  title: "Missing Customer Segment & CSM",
+  description: "Internal tool for classifying enterprises into customer segments and assigning missing CSMs",
 };
 
 export default async function RootLayout({
@@ -27,10 +27,10 @@ export default async function RootLayout({
                 <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
                   <Link href="/" className="flex items-center gap-2">
                     <span className="grid h-7 w-7 place-items-center rounded-md bg-ink text-xs font-bold text-white">
-                      SO
+                      MS
                     </span>
                     <span className="text-sm font-semibold text-ink">
-                      Customer Segment Ops
+                      Missing Customer Segment &amp; CSM
                     </span>
                   </Link>
                   <div className="flex items-center gap-3">
