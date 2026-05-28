@@ -202,7 +202,7 @@ apply to the empty Neon DB on the first build.
   curl -H "Authorization: Bearer <CRON_SECRET>" https://<your-app>.vercel.app/api/sync
   ```
 - Vercel → Functions → `/api/sync` logs: look for `metabase.fetch.ok` with the row counts.
-- Vercel Cron is already registered (`vercel.json`); next run is every 6 hours.
+- Vercel Cron is already registered (`vercel.json`); runs once daily at 00:00 UTC (~5:30 AM IST).
 
 ### Plan / cost note
 
@@ -214,4 +214,4 @@ caps functions at 10s and is TOS-restricted for commercial use — you'll want
 
 - **Anyone with `@spyne.ai` Google** can sign in → role `CSM` (assign / churn / export).
 - Listed in `ADMIN_EMAILS` → also `ADMIN` (can trigger `/api/sync` from an authenticated session, not just via the cron secret).
-- Sync runs every 6 hours by default — edit `vercel.json` to change the schedule.
+- Sync runs **once daily at 00:00 UTC (≈5:30 AM IST)** — edit `vercel.json` to change the schedule.
