@@ -17,6 +17,9 @@ interface Filters {
   status: "PENDING" | "RESOLVED";
   csm: string;
   q: string;
+  /** YYYY-MM-DD strings (native <input type="date"> output) or "" for "no bound". */
+  lastReceivedFrom: string;
+  lastReceivedTo: string;
 }
 
 /**
@@ -38,6 +41,8 @@ export function QueueExplorer({ csms }: { csms: CsmOption[] }) {
     status: "PENDING",
     csm: "",
     q: "",
+    lastReceivedFrom: "",
+    lastReceivedTo: "",
   });
   const [qInput, setQInput] = useState("");
   const [groupByCsm, setGroupByCsm] = useState(true);
@@ -91,6 +96,8 @@ export function QueueExplorer({ csms }: { csms: CsmOption[] }) {
     status: filters.status,
     csm: filters.csm || undefined,
     q: filters.q || undefined,
+    lastReceivedFrom: filters.lastReceivedFrom || undefined,
+    lastReceivedTo: filters.lastReceivedTo || undefined,
   };
 
   const groupEntries = useMemo(
@@ -146,6 +153,30 @@ export function QueueExplorer({ csms }: { csms: CsmOption[] }) {
           </select>
         </div>
         <div>
+          <label className="text-xs text-muted">Last image received — from</label>
+          <input
+            type="date"
+            className="input mt-1 block w-40"
+            value={filters.lastReceivedFrom}
+            max={filters.lastReceivedTo || undefined}
+            onChange={(e) =>
+              setFilters((f) => ({ ...f, lastReceivedFrom: e.target.value }))
+            }
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted">— to</label>
+          <input
+            type="date"
+            className="input mt-1 block w-40"
+            value={filters.lastReceivedTo}
+            min={filters.lastReceivedFrom || undefined}
+            onChange={(e) =>
+              setFilters((f) => ({ ...f, lastReceivedTo: e.target.value }))
+            }
+          />
+        </div>
+        <div>
           <label className="text-xs text-muted">State</label>
           <select
             className="input mt-1 block w-32"
@@ -161,6 +192,17 @@ export function QueueExplorer({ csms }: { csms: CsmOption[] }) {
             <option value="RESOLVED">Resolved</option>
           </select>
         </div>
+        {(filters.lastReceivedFrom || filters.lastReceivedTo) && (
+          <button
+            type="button"
+            className="text-xs text-muted hover:text-ink"
+            onClick={() =>
+              setFilters((f) => ({ ...f, lastReceivedFrom: "", lastReceivedTo: "" }))
+            }
+          >
+            Clear dates
+          </button>
+        )}
       </div>
 
       {/* Body */}

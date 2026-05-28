@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { assignSegment, assignCsm } from "@/app/actions";
 import { SEGMENTS, type Segment } from "@/lib/constants";
+import { CSM_EMAILS, isKnownCsmEmail } from "@/lib/csm-emails";
 import type { QueueRow } from "@/lib/types";
 import { useToast } from "@/components/Toast";
 import { SegmentBadge, StatusPill, Spinner } from "@/components/ui";
@@ -198,6 +199,9 @@ interface AssignCsmInlineProps {
 
 function AssignCsmInline({ record, onAssigned, onStale }: AssignCsmInlineProps) {
   const toast = useToast();
+  // `email` is the typed/selected value. When it exactly matches a known CSM
+  // email, the Assign button enables. The combobox below filters the dropdown
+  // live as the user types.
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const idempotencyKey = useMemo(
@@ -205,17 +209,16 @@ function AssignCsmInline({ record, onAssigned, onStale }: AssignCsmInlineProps) 
     [record.enterpriseId],
   );
 
+  const canSubmit = !busy && isKnownCsmEmail(email);
+
   async function submit() {
-    const trimmed = email.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      toast.push("error", "Enter a valid email address.");
-      return;
-    }
+    if (!canSubmit) return;
+    const chosen = email.trim().toLowerCase();
     setBusy(true);
     try {
       const res = await assignCsm({
         enterpriseId: record.enterpriseId,
-        csmEmail: trimmed,
+        csmEmail: chosen,
         expectedVersion: record.version,
         idempotencyKey,
       });
@@ -223,10 +226,10 @@ function AssignCsmInline({ record, onAssigned, onStale }: AssignCsmInlineProps) 
         toast.push(
           "success",
           res.replay
-            ? `CSM was already set to ${trimmed}.`
-            : `CSM assigned: ${trimmed}.`,
+            ? `CSM was already set to ${chosen}.`
+            : `CSM assigned: ${chosen}.`,
         );
-        onAssigned(trimmed, res.record.version);
+        onAssigned(chosen, res.record.version);
       } else if (res.reason === "STALE") {
         toast.push("info", "This record was just updated. Refreshing.");
         onStale?.();
@@ -245,24 +248,178 @@ function AssignCsmInline({ record, onAssigned, onStale }: AssignCsmInlineProps) 
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <input
-        type="email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        onKeyDown={(e) => e.key === "Enter" && !busy && submit()}
-        placeholder="csm@spyne.ai"
-        className="input min-w-0 flex-1 py-1 text-xs"
-        disabled={busy}
-      />
+    <div className="flex flex-wrap items-start gap-1.5">
+      <div className="min-w-0 flex-1">
+        <CsmEmailCombobox
+          value={email}
+          onChange={setEmail}
+          onCommit={submit}
+          disabled={busy}
+        />
+      </div>
       <button
         type="button"
         onClick={submit}
-        disabled={busy}
+        disabled={!canSubmit}
         className="btn-primary px-2.5 py-1 text-xs"
       >
         {busy ? <Spinner /> : "Assign"}
       </button>
+    </div>
+  );
+}
+
+/* ────────────────────────── CSM email combobox ────────────────────────── */
+
+interface CsmEmailComboboxProps {
+  value: string;
+  onChange: (next: string) => void;
+  /** Triggered by Enter after a definitive selection (or on a known exact value). */
+  onCommit?: () => void;
+  disabled?: boolean;
+}
+
+/**
+ * Searchable type-ahead combobox over the fixed CSM email roster.
+ *
+ *   • Filters live on each keystroke (substring, case-insensitive).
+ *   • ↑/↓ move highlight, Enter selects (or commits if already a known email),
+ *     Esc closes the dropdown, mouse click works too.
+ *   • Click-outside closes the dropdown.
+ *   • The input value IS the displayed/typed text; whether it's a "real" CSM is
+ *     decided by `isKnownCsmEmail`, which the parent uses to enable Assign.
+ */
+function CsmEmailCombobox({
+  value,
+  onChange,
+  onCommit,
+  disabled,
+}: CsmEmailComboboxProps) {
+  const [open, setOpen] = useState(false);
+  const [highlight, setHighlight] = useState(0);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  const filtered = useMemo(() => {
+    const q = value.trim().toLowerCase();
+    if (!q) return CSM_EMAILS as readonly string[];
+    return CSM_EMAILS.filter((e) => e.includes(q));
+  }, [value]);
+
+  // Whenever the filtered set shrinks/grows, snap the highlight back into range
+  // so it never points at a missing index.
+  useEffect(() => {
+    if (highlight >= filtered.length) {
+      setHighlight(filtered.length === 0 ? 0 : filtered.length - 1);
+    }
+  }, [filtered.length, highlight]);
+
+  // Close on outside click.
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (!wrapperRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, []);
+
+  function pick(email: string) {
+    onChange(email);
+    setOpen(false);
+  }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setOpen(true);
+      setHighlight((h) => Math.min(h + 1, filtered.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlight((h) => Math.max(h - 1, 0));
+    } else if (e.key === "Enter") {
+      if (open && filtered[highlight]) {
+        e.preventDefault();
+        const picked = filtered[highlight];
+        pick(picked);
+        // Commit on the next tick so the parent's `canSubmit` reflects the new value.
+        if (onCommit) setTimeout(() => onCommit(), 0);
+      } else if (isKnownCsmEmail(value)) {
+        e.preventDefault();
+        onCommit?.();
+      }
+    } else if (e.key === "Escape") {
+      setOpen(false);
+    }
+  }
+
+  const validMark = isKnownCsmEmail(value);
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <input
+        type="text"
+        className={
+          "input w-full py-1 pr-7 text-xs " +
+          (value && !validMark ? "border-amber-300" : "")
+        }
+        placeholder="Type to search CSM email…"
+        value={value}
+        disabled={disabled}
+        onChange={(e) => {
+          onChange(e.target.value.toLowerCase());
+          setOpen(true);
+          setHighlight(0);
+        }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={onKeyDown}
+        autoComplete="off"
+        spellCheck={false}
+        role="combobox"
+        aria-autocomplete="list"
+        aria-expanded={open}
+        aria-controls="csm-email-listbox"
+      />
+      {validMark && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-ok"
+          title="Known CSM"
+        >
+          ✓
+        </span>
+      )}
+      {open && (
+        <ul
+          id="csm-email-listbox"
+          role="listbox"
+          className="absolute left-0 right-0 z-50 mt-1 max-h-56 overflow-y-auto rounded-lg border border-line bg-white shadow-lg"
+        >
+          {filtered.length === 0 ? (
+            <li className="px-3 py-2 text-xs text-muted">No CSM matches.</li>
+          ) : (
+            filtered.map((email, i) => (
+              <li
+                key={email}
+                role="option"
+                aria-selected={i === highlight}
+                className={
+                  "cursor-pointer px-3 py-1.5 text-xs " +
+                  (i === highlight
+                    ? "bg-surface font-medium text-ink"
+                    : "text-ink hover:bg-surface")
+                }
+                onMouseDown={(e) => {
+                  // Prevent input blur before we update state.
+                  e.preventDefault();
+                  pick(email);
+                }}
+                onMouseEnter={() => setHighlight(i)}
+              >
+                {email}
+              </li>
+            ))
+          )}
+        </ul>
+      )}
     </div>
   );
 }

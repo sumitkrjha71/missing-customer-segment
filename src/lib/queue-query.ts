@@ -31,6 +31,23 @@ export function buildQueueWhere(f: QueueFilter): Prisma.PendingRecordWhereInput 
     ];
   }
 
+  // Last-image-received-at date range (inclusive).
+  // A date string like "2026-05-28" parses as midnight UTC, but users mean the
+  // WHOLE of that day — bump the upper bound to the *start* of the next day
+  // and use `lt`, which is cleaner than fiddling with 23:59:59.999.
+  if (f.lastReceivedFrom || f.lastReceivedTo) {
+    const range: { gte?: Date; lt?: Date } = {};
+    if (f.lastReceivedFrom) range.gte = f.lastReceivedFrom;
+    if (f.lastReceivedTo) {
+      const endExclusive = new Date(f.lastReceivedTo);
+      endExclusive.setUTCDate(endExclusive.getUTCDate() + 1);
+      range.lt = endExclusive;
+    }
+    // Filtering on a column automatically excludes NULL — that's exactly what
+    // we want: a record with no last_received_at can't match a date range.
+    where.lastImageReceivedAt = range;
+  }
+
   return where;
 }
 

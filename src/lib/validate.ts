@@ -119,6 +119,11 @@ export const queueFilterSchema = z.object({
   csm: z.string().trim().optional(), // exact CSM email filter
   q: z.string().trim().optional(), // free-text search (name/email)
   segment: z.enum(SEGMENTS).optional(), // resolved-segment filter
+  // Last-image-received-at date range. Inclusive on both ends. Either side
+  // optional; setting any side also excludes records with NULL last_received_at.
+  // Strings come from native <input type="date"> as YYYY-MM-DD.
+  lastReceivedFrom: z.coerce.date().optional(),
+  lastReceivedTo: z.coerce.date().optional(),
   cursor: z.string().optional(), // keyset cursor = last enterpriseId
   take: z.coerce.number().int().min(1).max(200).optional(),
 });

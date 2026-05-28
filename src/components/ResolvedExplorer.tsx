@@ -11,6 +11,9 @@ interface Filters {
   csm: string;
   q: string;
   segment: "ENT" | "Mid" | "SMB" | "";
+  /** YYYY-MM-DD or "" — inclusive bounds on last_received_at. */
+  lastReceivedFrom: string;
+  lastReceivedTo: string;
 }
 
 /** Default sort: unique_qc_images DESC (nulls last), tiebroken by resolvedAt DESC. */
@@ -34,7 +37,13 @@ function sortByQcDesc(rows: QueueRow[]): QueueRow[] {
  * so it doubles as the per-CSM handover artifact.
  */
 export function ResolvedExplorer() {
-  const [filters, setFilters] = useState<Filters>({ csm: "", q: "", segment: "" });
+  const [filters, setFilters] = useState<Filters>({
+    csm: "",
+    q: "",
+    segment: "",
+    lastReceivedFrom: "",
+    lastReceivedTo: "",
+  });
   const [qInput, setQInput] = useState("");
 
   useEffect(() => {
@@ -58,6 +67,8 @@ export function ResolvedExplorer() {
       if (filters.csm) p.set("csm", filters.csm);
       if (filters.q) p.set("q", filters.q);
       if (filters.segment) p.set("segment", filters.segment);
+      if (filters.lastReceivedFrom) p.set("lastReceivedFrom", filters.lastReceivedFrom);
+      if (filters.lastReceivedTo) p.set("lastReceivedTo", filters.lastReceivedTo);
       if (c) p.set("cursor", c);
       return p.toString();
     },
@@ -93,6 +104,8 @@ export function ResolvedExplorer() {
     csm: filters.csm || undefined,
     q: filters.q || undefined,
     segment: filters.segment || undefined,
+    lastReceivedFrom: filters.lastReceivedFrom || undefined,
+    lastReceivedTo: filters.lastReceivedTo || undefined,
   };
 
   return (
@@ -145,6 +158,41 @@ export function ResolvedExplorer() {
             ))}
           </select>
         </div>
+        <div>
+          <label className="text-xs text-muted">Last image received — from</label>
+          <input
+            type="date"
+            className="input mt-1 block w-40"
+            value={filters.lastReceivedFrom}
+            max={filters.lastReceivedTo || undefined}
+            onChange={(e) =>
+              setFilters((f) => ({ ...f, lastReceivedFrom: e.target.value }))
+            }
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted">— to</label>
+          <input
+            type="date"
+            className="input mt-1 block w-40"
+            value={filters.lastReceivedTo}
+            min={filters.lastReceivedFrom || undefined}
+            onChange={(e) =>
+              setFilters((f) => ({ ...f, lastReceivedTo: e.target.value }))
+            }
+          />
+        </div>
+        {(filters.lastReceivedFrom || filters.lastReceivedTo) && (
+          <button
+            type="button"
+            className="text-xs text-muted hover:text-ink"
+            onClick={() =>
+              setFilters((f) => ({ ...f, lastReceivedFrom: "", lastReceivedTo: "" }))
+            }
+          >
+            Clear dates
+          </button>
+        )}
       </div>
 
       <div className="flex items-center gap-2 text-sm text-muted">

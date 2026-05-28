@@ -7,6 +7,10 @@ export interface ExportFilter {
   csm?: string;
   q?: string;
   segment?: string;
+  /** YYYY-MM-DD inclusive lower bound on last_received_at. */
+  lastReceivedFrom?: string;
+  /** YYYY-MM-DD inclusive upper bound on last_received_at. */
+  lastReceivedTo?: string;
 }
 
 function toQuery(filter: ExportFilter): string {
@@ -15,6 +19,8 @@ function toQuery(filter: ExportFilter): string {
   if (filter.csm) p.set("csm", filter.csm);
   if (filter.q) p.set("q", filter.q);
   if (filter.segment) p.set("segment", filter.segment);
+  if (filter.lastReceivedFrom) p.set("lastReceivedFrom", filter.lastReceivedFrom);
+  if (filter.lastReceivedTo) p.set("lastReceivedTo", filter.lastReceivedTo);
   return p.toString();
 }
 
