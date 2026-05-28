@@ -1,0 +1,114 @@
+// Customer Segment Assignment — data model.
+//
+// Core idea: this database is a LOCAL WORKQUEUE, not a mirror of Metabase.
+// `PendingRecord.status` is the source of truth. Metabase is an advisory input
+// that lags our resolutions, so ingestion must never resurrect a RESOLVED row.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  // Pooled connection used by every runtime query — required on Vercel so
+  // each serverless instance doesn't exhaust the source DB's connections.
+  url       = env("DATABASE_URL")
+  // Direct (non-pooled) connection used ONLY by `prisma migrate` /
+  // `prisma db push`. Optional locally (Prisma falls back to `url`); on
+  // Neon + Vercel it is required because PgBouncer in transaction mode
+  // can't run migration DDL reliably.
+  directUrl = env("DIRECT_URL")
+}
+
+/// One enterprise that needs (or needed) a customer-segment decision.
+model PendingRecord {
+  enterpriseId    String    @id @map("enterprise_id") // natural key from source
+  enterpriseName  String?   @map("enterprise_name")
+  csmName         String?   @map("csm_name")
+  csmEmail        String?   @map("csm_email")
+  accountStatus   String?   @map("account_status") // mirror of source status
+  sourceSegment   String?   @map("source_segment") // raw customer_segment from source (NULL vs 'unassigned')
+  segment         String? // ENT | Mid | SMB, once assigned
+  uniqueQcImages  Int?      @map("unique_qc_images") // QC-image signal; default sort everywhere
+  lastImageReceivedAt DateTime? @map("last_received_at") // when the last QC image was received
+  sourceCreatedAt DateTime? @map("source_created_at")
+  sourceUpdatedAt DateTime? @map("source_updated_at")
+
+  status     RecordStatus @default(PENDING)
+  version    Int          @default(0) // optimistic lock (compare-and-swap)
+  resolvedAt DateTime?    @map("resolved_at")
+  resolvedBy String?      @map("resolved_by") // actor email
+
+  lastSeenAt  DateTime? @map("last_seen_at") // last sync that still listed it
+  firstSeenAt DateTime  @default(now()) @map("first_seen_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@index([status]) // queue scans
+  @@index([status, csmEmail]) // home grouping by CSM
+  @@index([firstSeenAt]) // pendency aging
+  @@map("pending_record")
+}
+
+/// Append-only record of every mutation. No update/delete code paths.
+/// `action` is a String (not a Prisma enum) so we can add new actions without
+/// running into PostgreSQL's "ALTER TYPE ADD VALUE outside transaction" rule.
+/// Valid values today: 'ASSIGN' | 'CHURN' | 'ASSIGN_CSM'.
+model AuditLog {
+  id             String   @id @default(cuid())
+  enterpriseId   String   @map("enterprise_id")
+  action         String
+  fromSegment    String?  @map("from_segment")
+  toSegment      String?  @map("to_segment")
+  fromStatus     String?  @map("from_status")
+  toStatus       String?  @map("to_status")
+  fromCsmEmail   String?  @map("from_csm_email")
+  toCsmEmail     String?  @map("to_csm_email")
+  actorEmail     String   @map("actor_email")
+  idempotencyKey String   @unique @map("idempotency_key") // race-free dedupe
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([enterpriseId, createdAt])
+  @@index([actorEmail, createdAt])
+  @@map("audit_log")
+}
+
+/// Sync bookkeeping — one row per ingestion run. Powers observability.
+model SyncRun {
+  id           String     @id @default(cuid())
+  startedAt    DateTime   @default(now()) @map("started_at")
+  finishedAt   DateTime?  @map("finished_at")
+  status       SyncStatus @default(RUNNING)
+  rowsFetched  Int        @default(0) @map("rows_fetched")
+  rowsUpserted Int        @default(0) @map("rows_upserted")
+  rowsInvalid  Int        @default(0) @map("rows_invalid")
+  error        String?
+
+  @@index([startedAt])
+  @@map("sync_run")
+}
+
+/// Role lookup. Identity itself comes from Google; this just stores the role.
+model AppUser {
+  email     String   @id
+  name      String?
+  role      Role     @default(CSM)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("app_user")
+}
+
+enum RecordStatus {
+  PENDING
+  RESOLVED
+}
+
+enum SyncStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum Role {
+  CSM
+  ADMIN
+}

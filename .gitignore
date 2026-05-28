@@ -1,0 +1,26 @@
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# env
+.env
+.env.local
+.env*.local
+
+# logs
+*.log
+npm-debug.log*
+
+# prisma
+prisma/*.db
+
+# misc
+.DS_Store
+.vercel
+*.tsbuildinfo
+next-env.d.ts
+
+# local export scratch
+/tmp-exports/
