@@ -180,6 +180,7 @@ const ALIASES: Record<string, string> = {
   enterprise: "enterprise_id",
   account_id: "enterprise_id",
   company_id: "enterprise_id",
+  qa_enterprise_id: "enterprise_id", // table-qualified "qa.enterprise_id" from the question
   // enterprise name
   name: "enterprise_name",
   company: "enterprise_name",
@@ -192,17 +193,28 @@ const ALIASES: Record<string, string> = {
   // csm email
   csmemail: "csm_email",
   poc_email: "csm_email",
+  cs_poc_email: "csm_email",
   owner_email: "csm_email",
   account_manager_email: "csm_email",
   // csm name
   csmname: "csm_name",
   poc: "csm_name",
   poc_name: "csm_name",
+  cs_poc: "csm_name",
+  cs_poc_name: "csm_name",
   owner: "csm_name",
   account_manager: "csm_name",
   // status
   status: "account_status",
   accountstatus: "account_status",
+  // stage — canonical "stage" maps as-is; these cover common naming variants
+  // so a question column like "Account Stage" / "lifecycle_stage" still lands.
+  enterprise_stage: "stage",
+  account_stage: "stage",
+  lifecycle_stage: "stage",
+  customer_stage: "stage",
+  cs_stage: "stage",
+  deal_stage: "stage",
   // timestamps
   createdat: "created_at",
   updatedat: "updated_at",
