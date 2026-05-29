@@ -6,17 +6,17 @@ import type { QueueFilter } from "@/lib/validate";
  * queue list API and every export route so a filtered export matches exactly
  * what the user sees on screen.
  *
- * All predicates hit indexed columns (status, csm_email, first_seen_at).
+ * All predicates hit indexed columns (status, stage, first_seen_at).
  */
 export function buildQueueWhere(f: QueueFilter): Prisma.PendingRecordWhereInput {
   const where: Prisma.PendingRecordWhereInput = { status: f.status };
 
-  // Sentinel: csm=__none__ filters to records where csmEmail IS NULL (so the
-  // "Unassigned CSM" group can fetch its own page like every other group).
-  if (f.csm === "__none__") {
-    where.csmEmail = null;
-  } else if (f.csm) {
-    where.csmEmail = f.csm.toLowerCase();
+  // Sentinel: stage=__none__ filters to records where stage IS NULL (so the
+  // "No stage" group can fetch its own page like every other group).
+  if (f.stage === "__none__") {
+    where.stage = null;
+  } else if (f.stage) {
+    where.stage = f.stage;
   }
 
   if (f.segment) where.segment = f.segment;

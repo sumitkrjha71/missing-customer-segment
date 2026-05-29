@@ -35,6 +35,7 @@ export async function GET(req: Request) {
       csmName: r.csmName,
       csmEmail: r.csmEmail,
       accountStatus: r.accountStatus,
+      stage: r.stage,
       segment: r.segment,
       status: r.status,
       version: r.version,

@@ -4,7 +4,7 @@ import { useState } from "react";
 
 export interface ExportFilter {
   status: "PENDING" | "RESOLVED";
-  csm?: string;
+  stage?: string;
   q?: string;
   segment?: string;
   /** YYYY-MM-DD inclusive lower bound on last_received_at. */
@@ -16,7 +16,7 @@ export interface ExportFilter {
 function toQuery(filter: ExportFilter): string {
   const p = new URLSearchParams();
   p.set("status", filter.status);
-  if (filter.csm) p.set("csm", filter.csm);
+  if (filter.stage) p.set("stage", filter.stage);
   if (filter.q) p.set("q", filter.q);
   if (filter.segment) p.set("segment", filter.segment);
   if (filter.lastReceivedFrom) p.set("lastReceivedFrom", filter.lastReceivedFrom);
@@ -27,7 +27,7 @@ function toQuery(filter: ExportFilter): string {
 /**
  * Export the CURRENT filtered view in CSV / JSON / XLSX. Because the export
  * routes accept the same filter params as the queue, the file always matches
- * exactly what the user is looking at (whole queue, filtered, or per-CSM).
+ * exactly what the user is looking at (whole queue, filtered, or per-stage).
  */
 export function ExportMenu({ filter }: { filter: ExportFilter }) {
   const [open, setOpen] = useState(false);
@@ -49,7 +49,7 @@ export function ExportMenu({ filter }: { filter: ExportFilter }) {
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
           <div className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-lg border border-line bg-white shadow-lg">
             <div className="border-b border-line px-3 py-2 text-[11px] uppercase tracking-wide text-slate-400">
-              Export {filter.csm ? "this CSM" : filter.status.toLowerCase()}
+              Export {filter.stage ? "this stage" : filter.status.toLowerCase()}
             </div>
             {formats.map((f) => (
               <a

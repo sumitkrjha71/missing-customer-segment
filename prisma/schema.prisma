@@ -27,6 +27,7 @@ model PendingRecord {
   csmName         String?   @map("csm_name")
   csmEmail        String?   @map("csm_email")
   accountStatus   String?   @map("account_status") // mirror of source status
+  stage           String?   @map("stage") // enterprise lifecycle stage from source; primary grouping/filter dimension
   sourceSegment   String?   @map("source_segment") // raw customer_segment from source (NULL vs 'unassigned')
   segment         String? // ENT | Mid | SMB, once assigned
   uniqueQcImages  Int?      @map("unique_qc_images") // QC-image signal; default sort everywhere
@@ -44,7 +45,8 @@ model PendingRecord {
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
   @@index([status]) // queue scans
-  @@index([status, csmEmail]) // home grouping by CSM
+  @@index([status, csmEmail]) // legacy: CSM still displayed/assignable
+  @@index([status, stage]) // home grouping + filtering by stage
   @@index([firstSeenAt]) // pendency aging
   @@map("pending_record")
 }

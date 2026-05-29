@@ -5,6 +5,7 @@ export interface QueueRow {
   csmName: string | null;
   csmEmail: string | null;
   accountStatus: string | null;
+  stage: string | null;
   segment: string | null;
   status: "PENDING" | "RESOLVED";
   version: number;

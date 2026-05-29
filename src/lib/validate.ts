@@ -38,6 +38,9 @@ export const metabaseRowSchema = z
     account_status: looseString,
     accountStatus: looseString.optional(),
 
+    // Enterprise lifecycle stage — the primary grouping/filter dimension.
+    stage: looseString,
+
     // When the most recent QC image was received for this enterprise.
     last_received_at: looseDate,
 
@@ -70,6 +73,7 @@ export const metabaseRowSchema = z
     csmName: r.csmName ?? r.csm_name ?? null,
     csmEmail: (r.csmEmail ?? r.csm_email ?? null)?.toLowerCase() ?? null,
     accountStatus: r.accountStatus ?? r.account_status ?? null,
+    stage: r.stage ?? null,
     // Raw source segment, preserved so we can report NULL vs 'unassigned'.
     sourceSegment: r.customer_segment ?? null,
     uniqueQcImages: r.unique_qc_images ?? null,
@@ -125,7 +129,7 @@ export type ReassignInput = z.infer<typeof reassignInputSchema>;
 /** Query params shared by the queue list and the export routes. */
 export const queueFilterSchema = z.object({
   status: z.enum(["PENDING", "RESOLVED"]).default("PENDING"),
-  csm: z.string().trim().optional(), // exact CSM email filter
+  stage: z.string().trim().optional(), // exact stage filter; "__none__" = NULL stage
   q: z.string().trim().optional(), // free-text search (name/email)
   segment: z.enum(SEGMENTS).optional(), // resolved-segment filter
   // Last-image-received-at date range. Inclusive on both ends. Either side

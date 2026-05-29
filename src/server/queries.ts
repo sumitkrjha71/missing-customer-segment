@@ -37,8 +37,8 @@ export interface DashboardSummary {
   totalPending: number;
   nullSegment: number; // never had a segment value in source
   unassigned: number; // source said 'unassigned'
-  csmCount: number; // distinct CSMs with a backlog
-  perCsm: { csmEmail: string | null; csmName: string | null; count: number }[];
+  stageCount: number; // distinct (non-null) stages with a backlog
+  perStage: { stage: string | null; count: number }[];
   lastSync: {
     finishedAt: Date | null;
     status: string;
@@ -46,17 +46,17 @@ export interface DashboardSummary {
   } | null;
 }
 
-/** Metric cards + per-CSM grouping for the home dashboard. */
+/** Metric cards + per-stage grouping for the home dashboard. */
 export async function getSummary(): Promise<DashboardSummary> {
   const pendingWhere = { status: "PENDING" as const };
 
   const [totalPending, grouped, lastSync] = await Promise.all([
     prisma.pendingRecord.count({ where: pendingWhere }),
     prisma.pendingRecord.groupBy({
-      by: ["csmEmail", "csmName"],
+      by: ["stage"],
       where: pendingWhere,
       _count: { _all: true },
-      orderBy: { _count: { csmEmail: "desc" } },
+      orderBy: { _count: { stage: "desc" } },
     }),
     prisma.syncRun.findFirst({
       where: { status: { in: ["SUCCESS", "FAILED"] } },
@@ -70,9 +70,8 @@ export async function getSummary(): Promise<DashboardSummary> {
     where: { ...pendingWhere, sourceSegment: { equals: "unassigned", mode: "insensitive" } },
   });
 
-  const perCsm = grouped.map((g) => ({
-    csmEmail: g.csmEmail,
-    csmName: g.csmName,
+  const perStage = grouped.map((g) => ({
+    stage: g.stage,
     count: g._count._all,
   }));
 
@@ -80,8 +79,8 @@ export async function getSummary(): Promise<DashboardSummary> {
     totalPending,
     nullSegment: totalPending - unassigned,
     unassigned,
-    csmCount: perCsm.filter((c) => c.csmEmail).length,
-    perCsm,
+    stageCount: perStage.filter((s) => s.stage).length,
+    perStage,
     lastSync,
   };
 }

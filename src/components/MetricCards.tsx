@@ -15,7 +15,7 @@ export function MetricCards({ summary }: { summary: DashboardSummary }) {
     { label: "Pending accounts", value: summary.totalPending, hint: "awaiting a segment decision" },
     { label: "NULL segment", value: summary.nullSegment, hint: "no segment in source" },
     { label: "Unassigned", value: summary.unassigned, hint: "marked 'unassigned'" },
-    { label: "CSMs with backlog", value: summary.csmCount, hint: "have ≥1 pending" },
+    { label: "Stages with backlog", value: summary.stageCount, hint: "have ≥1 pending" },
   ];
 
   return (

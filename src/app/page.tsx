@@ -19,7 +19,7 @@ export default async function HomePage() {
 
       <MetricCards summary={summary} />
 
-      <QueueExplorer csms={summary.perCsm} />
+      <QueueExplorer stages={summary.perStage} />
     </div>
   );
 }

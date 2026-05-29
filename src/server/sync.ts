@@ -81,6 +81,7 @@ async function upsertChunk(rows: NormalizedRow[]): Promise<number> {
       ${r.csmName},
       ${r.csmEmail},
       ${r.accountStatus},
+      ${r.stage},
       ${r.sourceSegment},
       ${r.uniqueQcImages},
       ${r.lastImageReceivedAt},
@@ -98,7 +99,7 @@ async function upsertChunk(rows: NormalizedRow[]): Promise<number> {
   const affected = await prisma.$executeRaw`
     INSERT INTO "pending_record" (
       "enterprise_id", "enterprise_name", "csm_name", "csm_email",
-      "account_status", "source_segment", "unique_qc_images",
+      "account_status", "stage", "source_segment", "unique_qc_images",
       "last_received_at", "source_created_at", "source_updated_at",
       "status", "last_seen_at", "updated_at"
     )
@@ -112,6 +113,7 @@ async function upsertChunk(rows: NormalizedRow[]): Promise<number> {
       -- The CSM we assigned locally is authoritative until the source DB
       -- catches up.
       "account_status"    = EXCLUDED."account_status",
+      "stage"             = EXCLUDED."stage",
       "source_segment"    = EXCLUDED."source_segment",
       "unique_qc_images"  = EXCLUDED."unique_qc_images",
       "last_received_at"  = EXCLUDED."last_received_at",

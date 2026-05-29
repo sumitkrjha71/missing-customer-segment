@@ -34,8 +34,10 @@ export async function* iterateRecords(
   }
 }
 
-/** Human-readable scope tag for filenames, e.g. "csm_aarav" or "resolved". */
+/** Human-readable scope tag for filenames, e.g. "stage_onboarding" or "resolved". */
 export function scopeTag(filter: QueueFilter): string {
-  if (filter.csm) return `csm_${filter.csm.split("@")[0]}`;
+  if (filter.stage) {
+    return filter.stage === "__none__" ? "stage_none" : `stage_${filter.stage}`;
+  }
   return filter.status.toLowerCase();
 }

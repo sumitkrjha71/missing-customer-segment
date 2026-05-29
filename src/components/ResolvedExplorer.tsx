@@ -9,7 +9,7 @@ import { SegmentBadge, StatusPill, Spinner } from "@/components/ui";
 import { ReassignDialog } from "@/components/ReassignDialog";
 
 interface Filters {
-  csm: string;
+  stage: string;
   q: string;
   segment: "ENT" | "Mid" | "SMB" | "";
   /** YYYY-MM-DD or "" — inclusive bounds on last_received_at. */
@@ -35,11 +35,11 @@ function sortByQcDesc(rows: QueueRow[]): QueueRow[] {
 /**
  * The Resolved tab. One row per enterprise classified/churned. Filter the view,
  * then export CSV/JSON/XLSX — the export reflects the active filter exactly,
- * so it doubles as the per-CSM handover artifact.
+ * so it doubles as the per-stage handover artifact.
  */
-export function ResolvedExplorer() {
+export function ResolvedExplorer({ stages }: { stages: string[] }) {
   const [filters, setFilters] = useState<Filters>({
-    csm: "",
+    stage: "",
     q: "",
     segment: "",
     lastReceivedFrom: "",
@@ -67,7 +67,7 @@ export function ResolvedExplorer() {
       const p = new URLSearchParams();
       p.set("status", "RESOLVED");
       p.set("take", String(DEFAULT_PAGE_SIZE));
-      if (filters.csm) p.set("csm", filters.csm);
+      if (filters.stage) p.set("stage", filters.stage);
       if (filters.q) p.set("q", filters.q);
       if (filters.segment) p.set("segment", filters.segment);
       if (filters.lastReceivedFrom) p.set("lastReceivedFrom", filters.lastReceivedFrom);
@@ -104,7 +104,7 @@ export function ResolvedExplorer() {
 
   const exportFilter = {
     status: "RESOLVED" as const,
-    csm: filters.csm || undefined,
+    stage: filters.stage || undefined,
     q: filters.q || undefined,
     segment: filters.segment || undefined,
     lastReceivedFrom: filters.lastReceivedFrom || undefined,
@@ -133,13 +133,20 @@ export function ResolvedExplorer() {
           />
         </div>
         <div>
-          <label className="text-xs text-muted">CSM email</label>
-          <input
-            className="input mt-1 w-56"
-            placeholder="filter by CSM email"
-            value={filters.csm}
-            onChange={(e) => setFilters((f) => ({ ...f, csm: e.target.value }))}
-          />
+          <label className="text-xs text-muted">Stage</label>
+          <select
+            className="input mt-1 block w-48"
+            value={filters.stage}
+            onChange={(e) => setFilters((f) => ({ ...f, stage: e.target.value }))}
+          >
+            <option value="">All stages</option>
+            <option value="__none__">— No stage —</option>
+            {stages.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="text-xs text-muted">Segment</label>

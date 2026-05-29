@@ -24,6 +24,7 @@ export default async function RecordDetailPage({
     csmName: record.csmName,
     csmEmail: record.csmEmail,
     accountStatus: record.accountStatus,
+    stage: record.stage,
     segment: record.segment,
     status: record.status,
     version: record.version,
@@ -57,6 +58,7 @@ export default async function RecordDetailPage({
         <Field label="Segment"><SegmentBadge segment={record.segment} /></Field>
         <Field label="Account status"><StatusPill status={record.accountStatus} /></Field>
         <Field label="Queue state"><StatusPill status={record.status} /></Field>
+        <Field label="Stage">{record.stage ?? "—"}</Field>
         <Field label="CSM">{record.csmName ?? "—"}</Field>
         <Field label="CSM email">{record.csmEmail ?? "—"}</Field>
         <Field label="Unique QC Images">

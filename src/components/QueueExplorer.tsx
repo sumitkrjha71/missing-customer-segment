@@ -7,53 +7,55 @@ import { AssignDialog } from "@/components/AssignDialog";
 import { ExportMenu, type ExportFilter } from "@/components/ExportMenu";
 import { SegmentBadge, StatusPill, Spinner } from "@/components/ui";
 
-interface CsmOption {
-  csmEmail: string | null;
-  csmName: string | null;
+interface StageOption {
+  stage: string | null;
   count: number;
 }
 
 interface Filters {
   status: "PENDING" | "RESOLVED";
-  csm: string;
+  stage: string;
   q: string;
   /** YYYY-MM-DD strings (native <input type="date"> output) or "" for "no bound". */
   lastReceivedFrom: string;
   lastReceivedTo: string;
 }
 
+/** Group key for a (possibly null) stage. Null stage collapses to "__none__". */
+const stageKey = (stage: string | null) => stage ?? "__none__";
+const stageLabel = (stage: string | null) => stage ?? "No stage";
+
 /**
  * The home dashboard's queue surface.
  *
- * Grouped view (default for Pending): renders ONE collapsible bar per CSM from
- * the authoritative summary list (`summary.perCsm`), regardless of which pages
- * have been loaded. Each bar lazy-fetches its CSM's rows on expand so we don't
+ * Grouped view (default for Pending): renders ONE collapsible bar per STAGE from
+ * the authoritative summary list (`summary.perStage`), regardless of which pages
+ * have been loaded. Each bar lazy-fetches its stage's rows on expand so we don't
  * pull the whole queue up front.
  *
- * Flat view: kicks in when the user picks a specific CSM from the filter, when
+ * Flat view: kicks in when the user picks a specific stage from the filter, when
  * grouping is turned off, or when looking at the Resolved state.
  *
  * Default sort everywhere is `unique_qc_images DESC` (nulls last), tiebroken
  * by enterprise_id for stability.
  */
-export function QueueExplorer({ csms }: { csms: CsmOption[] }) {
+export function QueueExplorer({ stages }: { stages: StageOption[] }) {
   const [filters, setFilters] = useState<Filters>({
     status: "PENDING",
-    csm: "",
+    stage: "",
     q: "",
     lastReceivedFrom: "",
     lastReceivedTo: "",
   });
   const [qInput, setQInput] = useState("");
-  const [groupByCsm, setGroupByCsm] = useState(true);
+  const [groupByStage, setGroupByStage] = useState(true);
 
-  // Per-CSM pending counts, seeded from the server summary and decremented
+  // Per-stage pending counts, seeded from the server summary and decremented
   // locally as records resolve (keeps the badges in sync without a refetch).
-  const [csmCounts, setCsmCounts] = useState<Record<string, { name: string | null; count: number }>>(() => {
-    const m: Record<string, { name: string | null; count: number }> = {};
-    for (const c of csms) {
-      const key = c.csmEmail ?? "__none__";
-      m[key] = { name: c.csmName, count: c.count };
+  const [stageCounts, setStageCounts] = useState<Record<string, { count: number }>>(() => {
+    const m: Record<string, { count: number }> = {};
+    for (const s of stages) {
+      m[stageKey(s.stage)] = { count: s.count };
     }
     return m;
   });
@@ -73,16 +75,16 @@ export function QueueExplorer({ csms }: { csms: CsmOption[] }) {
   }, [qInput]);
 
   const showGroups =
-    groupByCsm && !filters.csm && filters.status === "PENDING";
+    groupByStage && !filters.stage && filters.status === "PENDING";
 
-  function handleResolved(enterpriseId: string, csmEmail: string | null) {
+  function handleResolved(enterpriseId: string, stage: string | null) {
     setResolvedIds((prev) => {
       const next = new Set(prev);
       next.add(enterpriseId);
       return next;
     });
-    const key = csmEmail ?? "__none__";
-    setCsmCounts((prev) => {
+    const key = stageKey(stage);
+    setStageCounts((prev) => {
       const cur = prev[key];
       if (!cur) return prev;
       return {
@@ -94,7 +96,7 @@ export function QueueExplorer({ csms }: { csms: CsmOption[] }) {
 
   const exportFilter: ExportFilter = {
     status: filters.status,
-    csm: filters.csm || undefined,
+    stage: filters.stage || undefined,
     q: filters.q || undefined,
     lastReceivedFrom: filters.lastReceivedFrom || undefined,
     lastReceivedTo: filters.lastReceivedTo || undefined,
@@ -102,10 +104,10 @@ export function QueueExplorer({ csms }: { csms: CsmOption[] }) {
 
   const groupEntries = useMemo(
     () =>
-      Object.entries(csmCounts)
+      Object.entries(stageCounts)
         .filter(([, v]) => v.count > 0)
         .sort(([, a], [, b]) => b.count - a.count),
-    [csmCounts],
+    [stageCounts],
   );
 
   return (
@@ -115,10 +117,10 @@ export function QueueExplorer({ csms }: { csms: CsmOption[] }) {
         <label className="flex items-center gap-1.5 text-xs text-muted">
           <input
             type="checkbox"
-            checked={groupByCsm}
-            onChange={(e) => setGroupByCsm(e.target.checked)}
+            checked={groupByStage}
+            onChange={(e) => setGroupByStage(e.target.checked)}
           />
-          Group by CSM
+          Group by stage
         </label>
         <ExportMenu filter={exportFilter} />
       </div>
@@ -135,19 +137,19 @@ export function QueueExplorer({ csms }: { csms: CsmOption[] }) {
           />
         </div>
         <div>
-          <label className="text-xs text-muted">CSM</label>
+          <label className="text-xs text-muted">Stage</label>
           <select
             className="input mt-1 block w-48"
-            value={filters.csm}
-            onChange={(e) => setFilters((f) => ({ ...f, csm: e.target.value }))}
+            value={filters.stage}
+            onChange={(e) => setFilters((f) => ({ ...f, stage: e.target.value }))}
           >
-            <option value="">All CSMs</option>
-            <option value="__none__">— Unassigned —</option>
-            {csms
-              .filter((c) => c.csmEmail)
-              .map((c) => (
-                <option key={c.csmEmail} value={c.csmEmail!}>
-                  {c.csmName ?? c.csmEmail} ({c.count})
+            <option value="">All stages</option>
+            <option value="__none__">— No stage —</option>
+            {stages
+              .filter((s) => s.stage)
+              .map((s) => (
+                <option key={s.stage} value={s.stage!}>
+                  {s.stage} ({s.count})
                 </option>
               ))}
           </select>
@@ -212,10 +214,9 @@ export function QueueExplorer({ csms }: { csms: CsmOption[] }) {
         ) : (
           <div className="space-y-3">
             {groupEntries.map(([key, val], i) => (
-              <CsmGroupLazy
+              <StageGroupLazy
                 key={key}
-                csmEmail={key === "__none__" ? null : key}
-                csmName={val.name}
+                stage={key === "__none__" ? null : key}
                 count={val.count}
                 filters={filters}
                 resolvedIds={resolvedIds}
@@ -238,7 +239,7 @@ export function QueueExplorer({ csms }: { csms: CsmOption[] }) {
         <AssignDialog
           record={selected}
           onClose={() => setSelected(null)}
-          onResolved={(id) => handleResolved(id, selected.csmEmail)}
+          onResolved={(id) => handleResolved(id, selected.stage)}
           onStale={() => {
             setResolvedIds((prev) => new Set(prev));
           }}
@@ -266,11 +267,10 @@ function sortByQcDesc(rows: QueueRow[]): QueueRow[] {
   });
 }
 
-/* ─────────────────────────── Per-CSM collapsible ──────────────────────────── */
+/* ─────────────────────────── Per-stage collapsible ──────────────────────────── */
 
-interface CsmGroupLazyProps {
-  csmEmail: string | null;
-  csmName: string | null;
+interface StageGroupLazyProps {
+  stage: string | null;
   count: number;
   filters: Filters;
   resolvedIds: Set<string>;
@@ -278,15 +278,14 @@ interface CsmGroupLazyProps {
   onOpenRecord: (r: QueueRow) => void;
 }
 
-function CsmGroupLazy({
-  csmEmail,
-  csmName,
+function StageGroupLazy({
+  stage,
   count,
   filters,
   resolvedIds,
   defaultOpen,
   onOpenRecord,
-}: CsmGroupLazyProps) {
+}: StageGroupLazyProps) {
   const [open, setOpen] = useState(!!defaultOpen);
   const [rows, setRows] = useState<QueueRow[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
@@ -303,11 +302,11 @@ function CsmGroupLazy({
       try {
         const p = new URLSearchParams();
         p.set("status", "PENDING");
-        p.set("csm", csmEmail ?? "__none__");
+        p.set("stage", stageKey(stage));
         if (filters.q) p.set("q", filters.q);
-        // Within ONE CSM group, sort is client-side by unique_qc_images DESC.
+        // Within ONE stage group, sort is client-side by unique_qc_images DESC.
         // Pulling a generous page (capped at the server max of 200) makes that
-        // sort represent the whole CSM at typical scale, instead of the first
+        // sort represent the whole stage at typical scale, instead of the first
         // 50 rows by enterprise_id.
         p.set("take", "200");
         if (cursorParam) p.set("cursor", cursorParam);
@@ -324,7 +323,7 @@ function CsmGroupLazy({
         if (id === reqId.current) setLoading(false);
       }
     },
-    [csmEmail, filters.q],
+    [stage, filters.q],
   );
 
   useEffect(() => {
@@ -343,7 +342,7 @@ function CsmGroupLazy({
     [rows, resolvedIds],
   );
 
-  const displayName = csmName ?? (csmEmail ? csmEmail : "Unassigned CSM");
+  const displayName = stageLabel(stage);
   const isFiltered = !!filters.q;
 
   return (
@@ -355,17 +354,12 @@ function CsmGroupLazy({
         <span className="flex min-w-0 items-center gap-2">
           <span className="text-muted">{open ? "▾" : "▸"}</span>
           <span className="truncate text-sm font-medium text-ink">{displayName}</span>
-          {csmEmail && csmName && (
-            <span className="hidden truncate text-xs text-muted sm:inline">
-              {csmEmail}
-            </span>
-          )}
         </span>
         <span className="flex items-center gap-1.5 whitespace-nowrap">
           {isFiltered && open && (
             <span className="text-[11px] text-muted">{visibleRows.length} matching</span>
           )}
-          <span className="pill bg-slate-100 text-slate-600" title="Total pending for this CSM">
+          <span className="pill bg-slate-100 text-slate-600" title="Total pending for this stage">
             {Math.max(0, count - rows.filter((r) => resolvedIds.has(r.enterpriseId)).length)}
           </span>
         </span>
@@ -424,7 +418,7 @@ function FlatQueue({
       const p = new URLSearchParams();
       p.set("status", filters.status);
       p.set("take", String(DEFAULT_PAGE_SIZE));
-      if (filters.csm) p.set("csm", filters.csm);
+      if (filters.stage) p.set("stage", filters.stage);
       if (filters.q) p.set("q", filters.q);
       if (c) p.set("cursor", c);
       return p.toString();
@@ -501,6 +495,7 @@ function QueueTable({
             <th className="px-4 py-2 font-medium">Enterprise</th>
             <th className="px-4 py-2 font-medium">Segment</th>
             <th className="px-4 py-2 font-medium">Account</th>
+            <th className="px-4 py-2 font-medium">Stage</th>
             <th className="px-4 py-2 font-medium">CSM</th>
             <th
               className="px-4 py-2 font-medium"
@@ -530,6 +525,7 @@ function QueueTable({
               </td>
               <td className="px-4 py-2.5"><SegmentBadge segment={r.segment} /></td>
               <td className="px-4 py-2.5"><StatusPill status={r.accountStatus} /></td>
+              <td className="px-4 py-2.5 text-ink">{r.stage ?? "—"}</td>
               <td className="px-4 py-2.5">
                 <div className="text-ink">{r.csmName ?? "—"}</div>
                 <div className="text-xs text-slate-400">{r.csmEmail ?? "—"}</div>

@@ -22,6 +22,10 @@ const NAMES = [
   "Beacon Auto Group", "Northstar Dealers", "Cedar Auto", "Vanguard Wheels",
 ];
 
+// Sample lifecycle stages — STAGE is the primary grouping/filter dimension.
+// One entry is null so the "No stage" group is exercised locally too.
+const STAGES = ["Onboarding", "Live", "Trial", "At Risk", null];
+
 function daysAgo(n: number): Date {
   return new Date(Date.now() - n * 24 * 60 * 60 * 1000);
 }
@@ -46,6 +50,7 @@ async function main() {
         csmName: csm.name === "Unassigned" ? null : csm.name,
         csmEmail: csm.email,
         accountStatus: "active",
+        stage: STAGES[i % STAGES.length],
         // Half the rows had no segment at all (NULL); half were 'unassigned'.
         sourceSegment: isNull ? null : "unassigned",
         segment: null,
@@ -69,6 +74,7 @@ async function main() {
       csmName: "Aarav Mehta",
       csmEmail: "aarav.mehta@spyne.ai",
       accountStatus: "active",
+      stage: "Live",
       segment: "ENT",
       status: RecordStatus.RESOLVED,
       resolvedAt: daysAgo(1),

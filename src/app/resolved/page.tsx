@@ -5,18 +5,26 @@ export const dynamic = "force-dynamic";
 
 export default async function ResolvedPage() {
   // Lightweight summary so the page header is informative even before scroll.
-  const [total, bySegment] = await Promise.all([
+  const [total, bySegment, byStage] = await Promise.all([
     prisma.pendingRecord.count({ where: { status: "RESOLVED" } }),
     prisma.pendingRecord.groupBy({
       by: ["segment"],
       where: { status: "RESOLVED" },
       _count: { _all: true },
     }),
+    prisma.pendingRecord.groupBy({
+      by: ["stage"],
+      where: { status: "RESOLVED" },
+      orderBy: { stage: "asc" },
+    }),
   ]);
 
   const counts = Object.fromEntries(
     bySegment.map((r) => [r.segment ?? "_churned", r._count._all]),
   ) as Record<string, number>;
+
+  // Distinct (non-null) stages present among resolved records, for the filter.
+  const stages = byStage.map((r) => r.stage).filter((s): s is string => !!s);
 
   return (
     <div className="space-y-6">
@@ -40,7 +48,7 @@ export default async function ResolvedPage() {
         </div>
       </div>
 
-      <ResolvedExplorer />
+      <ResolvedExplorer stages={stages} />
     </div>
   );
 }
