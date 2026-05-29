@@ -26,14 +26,18 @@ const SEGMENT_HINTS: Record<Segment, string> = {
 
 export function AssignDialog({ record, onClose, onResolved, onStale }: Props) {
   const toast = useToast();
-  const [busy, setBusy] = useState<Segment | null>(null);
+  const [selectedSegment, setSelectedSegment] = useState<Segment | null>(null);
+  const [busy, setBusy] = useState(false);
   const [showChurn, setShowChurn] = useState(false);
 
   // Local mirror of the record. Mutations made INSIDE this dialog (e.g.
   // assigning a CSM via the inline action) update `current` so subsequent
   // segment buttons CAS on the new version, and the UI reflects the new state.
   const [current, setCurrent] = useState<QueueRow>(record);
-  useEffect(() => setCurrent(record), [record.enterpriseId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    setCurrent(record);
+    setSelectedSegment(null);
+  }, [record.enterpriseId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // One idempotency key per OPEN of the dialog (per intent for the SEGMENT
   // decision). The inline Assign-CSM action has its own key.
@@ -55,7 +59,7 @@ export function AssignDialog({ record, onClose, onResolved, onStale }: Props) {
   const canAssignCsm = !current.csmEmail && !accountIsChurned;
 
   async function handleAssign(segment: Segment) {
-    setBusy(segment);
+    setBusy(true);
     try {
       const res = await assignSegment({
         enterpriseId: current.enterpriseId,
@@ -88,7 +92,7 @@ export function AssignDialog({ record, onClose, onResolved, onStale }: Props) {
     } catch {
       toast.push("error", "Network error. Your change was not applied.");
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   }
 
@@ -110,7 +114,7 @@ export function AssignDialog({ record, onClose, onResolved, onStale }: Props) {
   }
 
   return (
-    <Overlay onClose={() => !busy && onClose()}>
+    <Overlay onClose={() => !busy && !showChurn && onClose()}>
       <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
         <div className="flex items-start justify-between">
           <div>
@@ -153,33 +157,53 @@ export function AssignDialog({ record, onClose, onResolved, onStale }: Props) {
           </Field>
         </dl>
 
-        <div className="mt-5 grid grid-cols-3 gap-3">
+        <p className="mt-4 text-xs text-muted">Step 1 — select a segment:</p>
+        <div className="mt-2 grid grid-cols-3 gap-3">
           {SEGMENTS.map((s) => (
             <button
               key={s}
-              onClick={() => handleAssign(s)}
-              disabled={busy !== null}
-              className="flex flex-col items-center gap-1 rounded-xl border border-line bg-white px-3 py-4 text-center transition hover:border-slate-400 hover:bg-surface disabled:opacity-50"
+              onClick={() => setSelectedSegment(s)}
+              disabled={busy}
+              className={
+                "flex flex-col items-center gap-1 rounded-xl border px-3 py-4 text-center transition disabled:opacity-50 " +
+                (selectedSegment === s
+                  ? "border-ink bg-ink text-white"
+                  : "border-line bg-white hover:border-slate-400 hover:bg-surface")
+              }
             >
-              <span className="text-lg font-semibold text-ink">
-                {busy === s ? <Spinner /> : s}
-              </span>
-              <span className="text-[11px] leading-tight text-muted">
+              <span className="text-lg font-semibold">{s}</span>
+              <span className={`text-[11px] leading-tight ${selectedSegment === s ? "text-white/70" : "text-muted"}`}>
                 {SEGMENT_HINTS[s]}
               </span>
             </button>
           ))}
         </div>
 
-        <div className="mt-5 flex items-center justify-between border-t border-line pt-4">
+        <div className="mt-4">
+          <button
+            onClick={() => selectedSegment && handleAssign(selectedSegment)}
+            disabled={!selectedSegment || busy}
+            className="btn-primary w-full py-2.5"
+          >
+            {busy ? (
+              <span className="flex items-center justify-center gap-2"><Spinner /> Assigning…</span>
+            ) : selectedSegment ? (
+              `Confirm — Assign as ${selectedSegment}`
+            ) : (
+              "Select a segment above"
+            )}
+          </button>
+        </div>
+
+        <div className="mt-4 flex items-center justify-between border-t border-line pt-4">
           <button
             onClick={() => setShowChurn(true)}
-            disabled={busy !== null}
+            disabled={busy}
             className="text-sm font-medium text-danger hover:underline disabled:opacity-50"
           >
             Mark as churned…
           </button>
-          <button onClick={onClose} disabled={busy !== null} className="btn-ghost">
+          <button onClick={onClose} disabled={busy} className="btn-ghost">
             Cancel
           </button>
         </div>

@@ -113,6 +113,15 @@ export const assignCsmInputSchema = z.object({
 });
 export type AssignCsmInput = z.infer<typeof assignCsmInputSchema>;
 
+/** Server Action input: reassign the segment of an already-resolved record. */
+export const reassignInputSchema = z.object({
+  enterpriseId: z.string().min(1),
+  segment: z.enum(SEGMENTS),
+  expectedVersion: z.number().int().min(0),
+  idempotencyKey: z.string().uuid(),
+});
+export type ReassignInput = z.infer<typeof reassignInputSchema>;
+
 /** Query params shared by the queue list and the export routes. */
 export const queueFilterSchema = z.object({
   status: z.enum(["PENDING", "RESOLVED"]).default("PENDING"),

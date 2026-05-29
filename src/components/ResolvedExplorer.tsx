@@ -6,6 +6,7 @@ import type { QueueRow, QueueResponse } from "@/lib/types";
 import { DEFAULT_PAGE_SIZE, SEGMENTS } from "@/lib/constants";
 import { ExportMenu } from "@/components/ExportMenu";
 import { SegmentBadge, StatusPill, Spinner } from "@/components/ui";
+import { ReassignDialog } from "@/components/ReassignDialog";
 
 interface Filters {
   csm: string;
@@ -58,6 +59,8 @@ export function ResolvedExplorer() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const reqId = useRef(0);
+
+  const [reassigning, setReassigning] = useState<QueueRow | null>(null);
 
   const buildQuery = useCallback(
     (c?: string | null) => {
@@ -223,6 +226,7 @@ export function ResolvedExplorer() {
                 <th className="px-4 py-2 font-medium">Last Image Received at</th>
                 <th className="px-4 py-2 font-medium">Resolved by</th>
                 <th className="px-4 py-2 font-medium">Resolved at</th>
+                <th className="px-4 py-2 font-medium"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -263,6 +267,14 @@ export function ResolvedExplorer() {
                   <td className="px-4 py-2.5 text-muted">
                     {r.resolvedAt ? new Date(r.resolvedAt).toLocaleString() : "—"}
                   </td>
+                  <td className="px-4 py-2.5">
+                    <button
+                      onClick={() => setReassigning(r)}
+                      className="text-xs font-medium text-slate-500 hover:text-ink hover:underline whitespace-nowrap"
+                    >
+                      Reassign
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -276,6 +288,21 @@ export function ResolvedExplorer() {
             {loading ? <Spinner /> : "Load more"}
           </button>
         </div>
+      )}
+
+      {reassigning && (
+        <ReassignDialog
+          record={reassigning}
+          onClose={() => setReassigning(null)}
+          onReassigned={(id, segment, newVersion) => {
+            setRows((prev) =>
+              prev.map((r) =>
+                r.enterpriseId === id ? { ...r, segment, version: newVersion } : r,
+              ),
+            );
+            setReassigning(null);
+          }}
+        />
       )}
     </div>
   );

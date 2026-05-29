@@ -7,9 +7,11 @@ import {
   assignInputSchema,
   churnInputSchema,
   assignCsmInputSchema,
+  reassignInputSchema,
   type AssignInput,
   type ChurnInput,
   type AssignCsmInput,
+  type ReassignInput,
 } from "@/lib/validate";
 import {
   IdempotentReplayError,
@@ -340,6 +342,112 @@ async function resolveRecord(
       enterpriseId: input.enterpriseId,
       error: String(err),
     });
+    return { ok: false, reason: "ERROR", message: "Unexpected error" };
+  }
+}
+
+/**
+ * Reassign the segment of an already-resolved record.
+ * Keeps the record in RESOLVED state; only segment + audit trail change.
+ */
+export async function reassignSegment(rawInput: ReassignInput): Promise<MutationResult> {
+  let actorEmail: string;
+  try {
+    const actor = await requireActor();
+    actorEmail = actor.email;
+  } catch {
+    return { ok: false, reason: "AUTH" };
+  }
+
+  const parsed = reassignInputSchema.safeParse(rawInput);
+  if (!parsed.success) {
+    return { ok: false, reason: "VALIDATION", message: parsed.error.message };
+  }
+  const { enterpriseId, segment, expectedVersion, idempotencyKey } = parsed.data;
+
+  try {
+    const record = await prisma.$transaction(async (tx) => {
+      const before = await tx.pendingRecord.findUnique({
+        where: { enterpriseId },
+        select: { segment: true },
+      });
+      if (!before) throw new RecordNotFound();
+
+      const updated = await tx.pendingRecord.updateMany({
+        where: { enterpriseId, version: expectedVersion, status: "RESOLVED" },
+        data: {
+          segment,
+          version: { increment: 1 },
+          resolvedAt: new Date(),
+          resolvedBy: actorEmail,
+        },
+      });
+
+      if (updated.count === 0) {
+        const current = await tx.pendingRecord.findUnique({
+          where: { enterpriseId },
+          select: { version: true, status: true, segment: true, resolvedBy: true },
+        });
+        throw new StaleWriteError(current);
+      }
+
+      try {
+        await tx.auditLog.create({
+          data: {
+            enterpriseId,
+            action: "REASSIGN",
+            fromSegment: before.segment,
+            toSegment: segment,
+            actorEmail,
+            idempotencyKey,
+          },
+        });
+      } catch (e) {
+        if (isUniqueViolation(e)) throw new IdempotentReplayError();
+        throw e;
+      }
+
+      const after = await tx.pendingRecord.findUniqueOrThrow({
+        where: { enterpriseId },
+        select: {
+          enterpriseId: true,
+          status: true,
+          segment: true,
+          version: true,
+          accountStatus: true,
+        },
+      });
+      return after;
+    });
+
+    log.info("mutation.reassigned", { enterpriseId, actorEmail, segment });
+    revalidatePath("/resolved");
+    revalidatePath(`/queue/${enterpriseId}`);
+    return { ok: true, record };
+  } catch (err) {
+    if (err instanceof StaleWriteError) {
+      return { ok: false, reason: "STALE", current: err.current };
+    }
+    if (err instanceof IdempotentReplayError) {
+      const current = await prisma.pendingRecord.findUnique({
+        where: { enterpriseId },
+        select: {
+          enterpriseId: true,
+          status: true,
+          segment: true,
+          version: true,
+          accountStatus: true,
+        },
+      });
+      revalidatePath("/resolved");
+      return current
+        ? { ok: true, replay: true, record: current }
+        : { ok: false, reason: "NOT_FOUND" };
+    }
+    if (err instanceof RecordNotFound) {
+      return { ok: false, reason: "NOT_FOUND" };
+    }
+    log.error("mutation.reassign.error", { enterpriseId, error: String(err) });
     return { ok: false, reason: "ERROR", message: "Unexpected error" };
   }
 }
